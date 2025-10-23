@@ -25,12 +25,12 @@ Octopets is a platform designed to help pet owners find and share pet-friendly v
 | Frontend | React with TypeScript (functional components and hooks, 2025 latest) |
 | Routing | React Router v7 |
 | Backend | ASP.NET Core 9.0 with Minimal APIs |
-| Database | Entity Framework Core 9.0 (with local database for development) |
-| API Documentation | Swagger/OpenAPI with Scalar UI |
-| Application Hosting | .NET Aspire for distributed application orchestration |
+| Database | PostgreSQL 15 Flexible Server with Entity Framework Core 9.0 |
+| Application Hosting | Azure Container Apps |
 | Styling | Custom CSS with responsive design |
-| Containerization | Docker for frontend deployment |
-| Monitoring | Azure Application Insights (production only) |
+| Containerization | Docker for both frontend and backend deployment |
+| Infrastructure | Azure Bicep templates |
+| Monitoring | Azure Application Insights |
 
 ## 🚀 Getting started
 
@@ -194,23 +194,40 @@ When deploying to production:
    - Application Insights is automatically configured in production mode
    - Dashboard access is available through the Azure portal
 
-#### ☁️ Deploying to Azure
+## 🚀 Deployment to Azure
 
-If you plan on deploying the project to Azure, you can do so with the help of the [Azure Developer CLI](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd).
+This repository provides comprehensive guides for deploying Octopets to Azure Container Apps with PostgreSQL:
 
-Inside the `apphost` folder, run:
+### 📖 **Available Guides**
 
+| Guide | Description | Use Case |
+|-------|-------------|----------|
+| **[DEPLOYMENT_INSTRUCTIONS.md](./DEPLOYMENT_INSTRUCTIONS.md)** | Complete step-by-step deployment guide | New Azure deployments |
+| **[BREAKING_SCENARIOS_GUIDE.md](./BREAKING_SCENARIOS_GUIDE.md)** | PostgreSQL connectivity failure scenarios | SRE testing and training |
+| **[DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)** | Alternative deployment methods | Advanced configurations |
+
+### 🎯 **Quick Start**
 ```bash
-azd init
+# 1. Clone and setup
+git clone https://github.com/surivineela/octopets_postgresql.git
+cd octopets_postgresql
+
+# 2. Deploy infrastructure 
+az group create --name "octopets-prod-rg" --location "eastus"
+az deployment group create --resource-group "octopets-prod-rg" \
+  --template-file infrastructure/main.bicep \
+  --parameters location="eastus" environment="prod" appName="octopets" \
+    dbAdminLogin="octopetsadmin" dbAdminPassword="YourSecurePassword123!"
+
+# 3. Build and deploy container apps (see full guide for details)
 ```
 
-This will initialize the environment. Next, you can deploy to the cloud:
-
-```bash
-azd up
-```
-
-![azd up deploying resources to Azure](media/azdup.gif)
+### 🛠️ **What You Get**
+- ✅ **Production-ready** Azure Container Apps deployment
+- ✅ **PostgreSQL Flexible Server** with proper security
+- ✅ **Docker containerization** for both frontend and backend
+- ✅ **Infrastructure as Code** using Azure Bicep
+- ✅ **Breaking scenarios** for SRE testing and incident response training
 
 ## 💼 License
 
