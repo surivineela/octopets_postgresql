@@ -1,0 +1,62 @@
+# Docker Compose for local development
+# Replaces the Aspire AppHost for development orchestration
+
+version: '3.8'
+
+services:
+  # Backend API Service
+  octopets-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "5000:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ASPNETCORE_HTTP_PORTS=8080
+      - OpenAI__ApiKey=${OPENAI_API_KEY:-YOUR_OPENAI_API_KEY_HERE}
+      - EnableSwagger=true
+    volumes:
+      - ./backend:/app/source
+    networks:
+      - octopets-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend React Application
+  octopets-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    environment:
+      - REACT_APP_API_BASE_URL=http://localhost:5000/api
+      - REACT_APP_USE_MOCK_DATA=false
+    volumes:
+      - ./frontend/src:/app/src
+    networks:
+      - octopets-network
+    depends_on:
+      octopets-backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  octopets-network:
+    driver: bridge
+
+# Development volumes for hot reload (optional)
+volumes:
+  backend-packages:
+  frontend-node-modules:

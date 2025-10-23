@@ -1,0 +1,34 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "value": "swedencentral"
+    },
+    "environment": {
+      "value": "prod"
+    },
+    "appName": {
+      "value": "octopets"
+    },
+    "dbAdminLogin": {
+      "value": "octopetsadmin"
+    },
+    "dbAdminPassword": {
+      "reference": {
+        "keyVault": {
+          "id": "/subscriptions/{subscription-id}/resourceGroups/octopets-secrets/providers/Microsoft.KeyVault/vaults/octopets-deploy-kv"
+        },
+        "secretName": "DatabasePassword"
+      }
+    },
+    "openAiApiKey": {
+      "reference": {
+        "keyVault": {
+          "id": "/subscriptions/{subscription-id}/resourceGroups/octopets-secrets/providers/Microsoft.KeyVault/vaults/octopets-deploy-kv"
+        },
+        "secretName": "OpenAIApiKey"
+      }
+    }
+  }
+}

@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: octopets
+services:  
+  app:
+    language: dotnet
+    project: ./Octopets.AppHost.csproj
+    host: containerapp
+
+# Optional: Define hooks for post-deployment configuration
+hooks:
+  postdeploy:
+    shell: pwsh
+    run: |
+      Write-Host "🎉 Octopets deployment completed!"
+      Write-Host "📝 Don't forget to:"
+      Write-Host "   1. Configure OpenAI API key in Azure Key Vault or App Settings"
+      Write-Host "   2. Verify the application is running correctly"
+      Write-Host "   3. Test the OpenAI pet analysis endpoints"

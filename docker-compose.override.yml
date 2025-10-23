@@ -1,0 +1,32 @@
+# Development overrides for Docker Compose
+# Use: docker-compose -f docker-compose.yml -f docker-compose.override.yml up
+
+version: '3.8'
+
+services:
+  octopets-backend:
+    # Development overrides
+    volumes:
+      - ./backend:/app/source
+      - backend-packages:/app/.nuget
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - EnableSwagger=true
+      - Logging__LogLevel__Default=Debug
+    # Enable hot reload for development
+    command: ["dotnet", "watch", "run", "--urls", "http://+:8080"]
+
+  octopets-frontend:
+    # Development overrides with hot reload
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - frontend-node-modules:/app/node_modules
+    environment:
+      - REACT_APP_API_BASE_URL=http://localhost:5000/api
+      - REACT_APP_USE_MOCK_DATA=false
+      - CHOKIDAR_USEPOLLING=true # For Windows file watching
+
+volumes:
+  backend-packages:
+  frontend-node-modules:
