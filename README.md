@@ -196,38 +196,36 @@ When deploying to production:
 
 ## 🚀 Deployment to Azure
 
-This repository provides comprehensive guides for deploying Octopets to Azure Container Apps with PostgreSQL:
+This repository provides a **production-tested** deployment approach using Azure Container Apps with PostgreSQL.
 
-### 📖 **Available Guides**
+### 📖 **Documentation Structure**
 
-| Guide | Description | Use Case |
-|-------|-------------|----------|
-| **[DEPLOYMENT_INSTRUCTIONS.md](./DEPLOYMENT_INSTRUCTIONS.md)** | Complete step-by-step deployment guide | New Azure deployments |
-| **[BREAKING_SCENARIOS_GUIDE.md](./BREAKING_SCENARIOS_GUIDE.md)** | PostgreSQL connectivity failure scenarios | SRE testing and training |
-| **[DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)** | Alternative deployment methods | Advanced configurations |
+| Document | Purpose | 
+|----------|---------|
+| **[DEPLOYMENT_INSTRUCTIONS.md](./DEPLOYMENT_INSTRUCTIONS.md)** | Complete deployment guide with step-by-step instructions |
+| **[BREAKING_SCENARIOS_GUIDE.md](./BREAKING_SCENARIOS_GUIDE.md)** | PostgreSQL failure scenarios for SRE testing and training |
 
-### 🎯 **Quick Start**
+### 🎯 **Quick Deploy**
 ```bash
-# 1. Clone and setup
+# 1. Prerequisites: Azure CLI, Docker, Git
+# 2. Clone repository
 git clone https://github.com/surivineela/octopets_postgresql.git
 cd octopets_postgresql
 
-# 2. Deploy infrastructure 
+# 3. Deploy (follow DEPLOYMENT_INSTRUCTIONS.md for complete guide)
 az group create --name "octopets-prod-rg" --location "eastus"
 az deployment group create --resource-group "octopets-prod-rg" \
   --template-file infrastructure/main.bicep \
   --parameters location="eastus" environment="prod" appName="octopets" \
     dbAdminLogin="octopetsadmin" dbAdminPassword="YourSecurePassword123!"
-
-# 3. Build and deploy container apps (see full guide for details)
 ```
 
-### 🛠️ **What You Get**
-- ✅ **Production-ready** Azure Container Apps deployment
-- ✅ **PostgreSQL Flexible Server** with proper security
-- ✅ **Docker containerization** for both frontend and backend
-- ✅ **Infrastructure as Code** using Azure Bicep
-- ✅ **Breaking scenarios** for SRE testing and incident response training
+### 🏗️ **Architecture**
+- **Frontend**: React app in Azure Container Apps (Docker + nginx)
+- **Backend**: .NET Core API in Azure Container Apps  
+- **Database**: PostgreSQL Flexible Server with Entity Framework
+- **Infrastructure**: Azure Bicep templates for repeatable deployments
+- **Security**: Key Vault for secrets, proper firewall rules, SSL connections
 
 ## 💼 License
 
