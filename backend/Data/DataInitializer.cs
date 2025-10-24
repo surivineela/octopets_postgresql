@@ -59,11 +59,66 @@ public static class DataInitializer
             {
                 SeedDevelopmentData(dbContext, logger);
             }
+            
+            // Update existing listings with proper photo paths
+            await UpdateListingPhotos(dbContext, logger);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "An error occurred while applying database migrations");
             throw;
+        }
+    }
+
+    private static async Task UpdateListingPhotos(AppDbContext dbContext, ILogger logger)
+    {
+        try
+        {
+            logger.LogInformation("Checking and updating listing photos...");
+            
+            // Define the photo mappings for each listing (just filenames, component adds path)
+            var photoMappings = new Dictionary<int, List<string>>
+            {
+                { 1, new List<string> { "park1.jpg", "park2.jpg" } },
+                { 2, new List<string> { "cafe1.jpg", "cafe2.jpg" } },
+                { 3, new List<string> { "home1.jpg", "home2.jpg" } },
+                { 4, new List<string> { "hotel1.jpg", "hotel2.jpg" } },
+                { 5, new List<string> { "store1.jpg", "store2.jpg" } },
+                { 6, new List<string> { "moochs1.jpg", "moochs2.jpg" } }
+            };
+            
+            int updatedCount = 0;
+            foreach (var (listingId, photos) in photoMappings)
+            {
+                var listing = await dbContext.Listings.FindAsync(listingId);
+                if (listing != null)
+                {
+                    // Update if empty OR if paths contain full path (migration from old format)
+                    bool needsUpdate = listing.Photos == null || !listing.Photos.Any() || 
+                                      listing.Photos.Any(p => p.Contains("/images/venues/"));
+                    
+                    if (needsUpdate)
+                    {
+                        listing.Photos = photos;
+                        updatedCount++;
+                        logger.LogInformation("Updated photos for listing {ListingId} - {ListingName}", listingId, listing.Name);
+                    }
+                }
+            }
+            
+            if (updatedCount > 0)
+            {
+                await dbContext.SaveChangesAsync();
+                logger.LogInformation("Successfully updated photos for {Count} listings", updatedCount);
+            }
+            else
+            {
+                logger.LogInformation("No listings needed photo updates");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not update listing photos. This may be normal if photos are already set.");
         }
     }
 

@@ -4,6 +4,10 @@ FROM node:20-alpine AS build
 ARG REACT_APP_USE_MOCK_DATA=true
 ENV REACT_APP_USE_MOCK_DATA=$REACT_APP_USE_MOCK_DATA
 
+# Backend API URL (default to /api for nginx proxy)
+ARG REACT_APP_API_BASE_URL=/api
+ENV REACT_APP_API_BASE_URL=$REACT_APP_API_BASE_URL
+
 WORKDIR /app
 
 COPY package*.json ./
