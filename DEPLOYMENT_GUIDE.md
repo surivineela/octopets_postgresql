@@ -4,15 +4,15 @@ This guide will help you deploy the Octopets application to Azure using Sweden C
 
 ## 🏗️ Infrastructure Overview
 
-The deployment creates the following Azure resources:
+The deployment creates the following Azure resources in Sweden Central region:
 
-- **Azure Database for PostgreSQL Flexible Server** (Sweden Central)
-- **Azure Container Apps** for the backend API (Sweden Central)
-- **Azure Static Web Apps** for the React frontend (West Europe)
-- **Azure Key Vault** for secure secrets management (Sweden Central)
-- **Azure Container Registry** for Docker images (Sweden Central)
-- **Application Insights** for monitoring (Sweden Central)
-- **Log Analytics Workspace** for logging (Sweden Central)
+- **Azure Database for PostgreSQL Flexible Server** - PostgreSQL 15 database
+- **Azure Container Apps Environment** - Managed environment for containers
+- **Azure Container Apps** - Frontend (React) and Backend (.NET) apps
+- **Azure Key Vault** - Secure secrets management
+- **Azure Container Registry** - Docker image storage
+- **Application Insights** - Application monitoring and telemetry
+- **Log Analytics Workspace** - Centralized logging
 
 ## 📋 Prerequisites
 
@@ -38,11 +38,9 @@ The deployment creates the following Azure resources:
    gh auth login
    ```
 
-3. **Docker** installed (for local testing)
+3. **Docker** installed (for building container images)
 
-4. **Node.js 18+** and **npm** (for frontend development)
-
-5. **OpenAI API Key** (for pet analysis features)
+4. **Node.js 18+** and **npm** (for local frontend development, optional)
 
 ## 🚀 Deployment Steps
 
@@ -50,72 +48,81 @@ The deployment creates the following Azure resources:
 
 ```bash
 # Clone your repository
-git clone https://github.com/surivineela/octopets.git
-cd octopets
+git clone https://github.com/surivineela/octopets_postgresql.git
+cd octopets_postgresql
 
 # Ensure you're on the main branch
 git checkout main
 ```
 
-### Step 2: Run Deployment Script
-
-#### Option A: PowerShell (Windows)
-
-```powershell
-# Make the script executable and run it
-.\deploy-azure.ps1
-```
-
-#### Option B: Bash (Linux/macOS)
+### Step 2: Deploy Infrastructure
 
 ```bash
-# Make the script executable and run it
-chmod +x deploy-azure.sh
-./deploy-azure.sh
+# Create resource group
+az group create --name octopets-prod-rg --location swedencentral
+
+# Deploy infrastructure using Bicep
+az deployment group create \
+  --resource-group octopets-prod-rg \
+  --template-file infrastructure/main.bicep \
+  --parameters location=swedencentral \
+               environment=prod \
+               appName=octopets \
+               dbAdminLogin=octopetsadmin \
+               dbAdminPassword='YourSecurePassword123!'
+
+# Note the output values for backend and frontend URLs
 ```
 
-### Step 3: Configure GitHub Secrets
-
-After deployment, configure the following GitHub repository secrets for CI/CD:
+### Step 3: Build and Push Container Images
 
 ```bash
-# Required secrets (set these in GitHub repository settings)
-AZURE_CREDENTIALS              # Service principal credentials (JSON)
-AZURE_SUBSCRIPTION_ID          # Your Azure subscription ID
-AZURE_RESOURCE_GROUP          # octopets-prod-rg
-AZURE_CONTAINER_APP_NAME      # octopets-prod-api
-AZURE_STATIC_WEB_APP_NAME     # octopets-prod-web
-AZURE_STATIC_WEB_APPS_API_TOKEN  # From Static Web App deployment token
-POSTGRES_SERVER_NAME          # octopets-prod-postgres
+# Login to Azure Container Registry
+az acr login --name octopetsprodregistry
+
+# Build and push backend image
+cd backend
+docker build -f Dockerfile -t octopetsprodregistry.azurecr.io/octopets-backend:latest ..
+docker push octopetsprodregistry.azurecr.io/octopets-backend:latest
+
+# Build and push frontend image
+cd ../frontend
+docker build -t octopetsprodregistry.azurecr.io/octopets-frontend:latest \
+  --build-arg REACT_APP_USE_MOCK_DATA=false \
+  --build-arg REACT_APP_API_BASE_URL=https://octopets-prod-api.yellowmushroom-e7e19f03.swedencentral.azurecontainerapps.io/api \
+  .
+docker push octopetsprodregistry.azurecr.io/octopets-frontend:latest
 ```
 
-#### Creating Azure Service Principal
+### Step 4: Update Container Apps with Images
 
 ```bash
-# Create service principal for GitHub Actions
-az ad sp create-for-rbac \
-  --name "octopets-github-actions" \
-  --role contributor \
-  --scopes /subscriptions/{subscription-id}/resourceGroups/octopets-prod-rg \
-  --sdk-auth
+# Update backend container app
+az containerapp update \
+  --name octopets-prod-api \
+  --resource-group octopets-prod-rg \
+  --image octopetsprodregistry.azurecr.io/octopets-backend:latest
 
-# Copy the JSON output to AZURE_CREDENTIALS secret
+# Update frontend container app
+az containerapp update \
+  --name octopets-prod-web \
+  --resource-group octopets-prod-rg \
+  --image octopetsprodregistry.azurecr.io/octopets-frontend:latest
 ```
 
-### Step 4: Configure Static Web App Deployment Token
-
-1. Go to Azure Portal → Static Web Apps → octopets-prod-web
-2. Navigate to "Manage deployment token"
-3. Copy the deployment token
-4. Add it as `AZURE_STATIC_WEB_APPS_API_TOKEN` secret in GitHub
-
-### Step 5: Trigger Initial Deployment
+### Step 5: Seed the Database
 
 ```bash
-# Push to main branch to trigger CI/CD
-git add .
-git commit -m "Configure Azure deployment"
-git push origin main
+# Add firewall rule for your IP
+az postgres flexible-server firewall-rule create \
+  --resource-group octopets-prod-rg \
+  --name octopets-prod-postgres \
+  --rule-name AllowMyIP \
+  --start-ip-address YOUR_IP_ADDRESS \
+  --end-ip-address YOUR_IP_ADDRESS
+
+# Run seed script (requires psql or use seed-database.sql file)
+# See seed-database.sql in the repository root
 ```
 
 ## 🔧 Configuration Details
@@ -131,19 +138,19 @@ git push origin main
 
 ### Container Apps Configuration
 
-- **Environment**: Dedicated environment for isolation
+**Backend (octopets-prod-api):**
 - **Scaling**: 1-10 replicas based on HTTP requests
 - **CPU**: 0.5 cores per replica
 - **Memory**: 1.0 GiB per replica
-- **Health Checks**: Liveness and readiness probes
+- **Health Checks**: `/health` and `/health/ready` endpoints
 - **Ingress**: External HTTPS with CORS configured
 
-### Static Web App Configuration
-
-- **Location**: West Europe (closest to Sweden Central with SWA support)
-- **Tier**: Standard (includes custom domains, staging environments)
-- **CDN**: Built-in global CDN
-- **SSL**: Automatic HTTPS with custom domain support
+**Frontend (octopets-prod-web):**
+- **Scaling**: 1-5 replicas based on HTTP requests
+- **CPU**: 0.25 cores per replica
+- **Memory**: 0.5 GiB per replica
+- **Ingress**: External HTTPS
+- **Build Args**: REACT_APP_USE_MOCK_DATA, REACT_APP_API_BASE_URL
 
 ## 🔐 Security Configuration
 
@@ -152,8 +159,8 @@ git push origin main
 All sensitive information is stored in Azure Key Vault:
 
 - `PostgresConnectionString`: Database connection string
-- `OpenAIApiKey`: OpenAI API key for pet analysis
-- Additional secrets as needed
+- Container Registry credentials
+- Application Insights connection strings
 
 ### Network Security
 
@@ -190,49 +197,39 @@ Production environment variables are configured in:
 - Database: Connection monitoring
 - Container Apps: Built-in health probes
 
-## 🔄 CI/CD Pipeline
+## 🔄 Manual Deployment Workflow
 
-### Backend Deployment (`.github/workflows/deploy-backend.yml`)
+This application uses manual Docker builds and Azure CLI commands for deployment:
 
-1. Build .NET application
-2. Run tests
-3. Build Docker image
-4. Push to Azure Container Registry
-5. Update Container App
-6. Run database migrations
-7. Verify deployment
+1. **Build Docker Images**: Build frontend and backend containers locally
+2. **Push to ACR**: Push images to Azure Container Registry
+3. **Update Container Apps**: Deploy updated images to Container Apps
+4. **Database Migrations**: Backend automatically runs migrations on startup
+5. **Photo Updates**: Backend automatically updates listing photos on startup
 
-### Frontend Deployment (`.github/workflows/deploy-frontend.yml`)
-
-1. Build React application
-2. Run tests
-3. Deploy to Static Web App
-4. Configure routing and headers
-
-## 🌍 Custom Domain Configuration
+## 🌍 Custom Domain Configuration (Optional)
 
 ### Frontend Domain
 
-1. Configure DNS CNAME record:
-   ```
-   www.octopets.com → octopets-prod-web.azurestaticapps.net
-   ```
+Configure Container App custom domain:
 
-2. Add custom domain in Azure Portal:
-   - Static Web Apps → Custom domains → Add
-   - Verify domain ownership
-   - Configure SSL certificate
+```bash
+az containerapp hostname add \
+  --hostname www.octopets.com \
+  --name octopets-prod-web \
+  --resource-group octopets-prod-rg
+```
 
-### Backend API Domain (Optional)
+### Backend API Domain
 
-1. Configure Container App custom domain:
+Configure Container App custom domain:
 
-   ```bash
-   az containerapp hostname add \
-     --hostname api.octopets.com \
-     --name octopets-prod-api \
-     --resource-group octopets-prod-rg
-   ```
+```bash
+az containerapp hostname add \
+  --hostname api.octopets.com \
+  --name octopets-prod-api \
+  --resource-group octopets-prod-rg
+```
 
 ## 📈 Scaling & Performance
 
@@ -356,36 +353,42 @@ For deployment issues:
 
 ---
 
-## 🎉 Deployment Complete!
+## 🎉 Deployment Complete
 
 After successful deployment, your application will be available at:
 
-- **Frontend**: https://octopets-prod-web.azurestaticapps.net
-- **Backend API**: https://octopets-prod-api.azurecontainerapps.io
-- **API Documentation**: https://octopets-prod-api.azurecontainerapps.io/scalar/v1
+- **Frontend**: <https://octopets-prod-web.yellowmushroom-e7e19f03.swedencentral.azurecontainerapps.io>
+- **Backend API**: <https://octopets-prod-api.yellowmushroom-e7e19f03.swedencentral.azurecontainerapps.io>
+- **API Health**: <https://octopets-prod-api.yellowmushroom-e7e19f03.swedencentral.azurecontainerapps.io/health>
+- **API Listings**: <https://octopets-prod-api.yellowmushroom-e7e19f03.swedencentral.azurecontainerapps.io/api/listings>
 
 Monitor your application through:
+
 - **Azure Portal**: Resource monitoring and management
 - **Application Insights**: Performance and error tracking
-- **GitHub Actions**: Deployment pipeline monitoring
+- **Container App Logs**: Real-time application logs
 
 ### Database Schema Summary
 
 Your PostgreSQL database stores:
 
 **Listings Table**:
+
 - Venue information (name, address, contact)
 - Pet policies and amenities
-- Operating hours and pricing
-- Location coordinates
+- Photos (filenames, path added by frontend)
+- Rating and location information
 
 **Reviews Table**:
+
 - User reviews and ratings
 - Review text and timestamps
 - Associated listing information
 
-**Pet Analysis Data**:
-- OpenAI-powered pet analysis results
-- Cached analysis for performance
+**Seed Data**:
+
+- 6 demo listings with proper image references
+- 13 reviews across all listings
+- Auto-populated via backend DataInitializer or seed-database.sql
 
 All data is properly indexed for optimal query performance and includes comprehensive seed data for immediate use.
